@@ -1,0 +1,662 @@
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.eabi_attribute 27, 1
+   3              		.eabi_attribute 28, 1
+   4              		.eabi_attribute 20, 1
+   5              		.eabi_attribute 21, 1
+   6              		.eabi_attribute 23, 3
+   7              		.eabi_attribute 24, 1
+   8              		.eabi_attribute 25, 1
+   9              		.eabi_attribute 26, 1
+  10              		.eabi_attribute 30, 1
+  11              		.eabi_attribute 34, 1
+  12              		.eabi_attribute 18, 4
+  13              		.file	"LCD.c"
+  14              		.text
+  15              	.Ltext0:
+  16              		.cfi_sections	.debug_frame
+  17              		.section	.text.LCD_Calc_Code,"ax",%progbits
+  18              		.align	1
+  19              		.syntax unified
+  20              		.thumb
+  21              		.thumb_func
+  22              		.fpu fpv4-sp-d16
+  24              	LCD_Calc_Code:
+  25              	.LFB131:
+  26              		.file 1 "lib/LCD.c"
+   1:lib/LCD.c     **** #include "stm32f3xx_hal.h"
+   2:lib/LCD.c     **** 
+   3:lib/LCD.c     **** #include "LCD.h"
+   4:lib/LCD.c     **** 
+   5:lib/LCD.c     **** #define LCD_SEND_TIMEOUT 500 // ms
+   6:lib/LCD.c     **** #define LCD_CMD_STABLE_WAIT 1 // ms
+   7:lib/LCD.c     **** #define LCD_DATA_STABLE_WAIT 1 //ms
+   8:lib/LCD.c     **** 
+   9:lib/LCD.c     **** static void LCD_Send_Cmd(LCD_HandleTypeDef *hlcd, uint8_t cmd);
+  10:lib/LCD.c     **** static void LCD_Write_Byte(LCD_HandleTypeDef *hlcd, uint8_t data);
+  11:lib/LCD.c     **** static void LCD_Set_CGRAM_Addr(LCD_HandleTypeDef *hlcd, uint8_t idx);
+  12:lib/LCD.c     **** static uint8_t LCD_Calc_Code(char c);
+  13:lib/LCD.c     **** 
+  14:lib/LCD.c     **** static void LCD_Send_Cmd(LCD_HandleTypeDef *hlcd, uint8_t cmd) {
+  15:lib/LCD.c     ****     uint8_t cmd_pair[2] = {
+  16:lib/LCD.c     ****         LCD_CONTROL_BYTE(0, 0),
+  17:lib/LCD.c     ****         cmd
+  18:lib/LCD.c     ****     };
+  19:lib/LCD.c     **** 
+  20:lib/LCD.c     ****     HAL_I2C_Master_Transmit(hlcd->hi2c, hlcd->addr, cmd_pair, 2, LCD_SEND_TIMEOUT);
+  21:lib/LCD.c     ****     HAL_Delay(LCD_CMD_STABLE_WAIT);
+  22:lib/LCD.c     ****     return;
+  23:lib/LCD.c     **** }
+  24:lib/LCD.c     **** 
+  25:lib/LCD.c     **** static void LCD_Write_Byte(LCD_HandleTypeDef *hlcd, uint8_t data) {
+  26:lib/LCD.c     ****     uint8_t cmd_pair[2] = {
+  27:lib/LCD.c     ****         LCD_CONTROL_BYTE(0, 1),
+  28:lib/LCD.c     ****         data
+  29:lib/LCD.c     ****     };
+  30:lib/LCD.c     **** 
+  31:lib/LCD.c     ****     HAL_I2C_Master_Transmit(hlcd->hi2c, hlcd->addr, cmd_pair, 2, LCD_SEND_TIMEOUT);
+  32:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_FALSE;
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 2
+
+
+  33:lib/LCD.c     ****     HAL_Delay(LCD_DATA_STABLE_WAIT);
+  34:lib/LCD.c     ****     return;
+  35:lib/LCD.c     **** }
+  36:lib/LCD.c     **** 
+  37:lib/LCD.c     **** void LCD_Write(LCD_HandleTypeDef *hlcd, char* str) {
+  38:lib/LCD.c     ****     while(*str) {
+  39:lib/LCD.c     ****         LCD_Write_Byte(hlcd, LCD_Calc_Code(*str));
+  40:lib/LCD.c     ****         str++;
+  41:lib/LCD.c     ****     }
+  42:lib/LCD.c     ****     return;
+  43:lib/LCD.c     **** }
+  44:lib/LCD.c     **** 
+  45:lib/LCD.c     **** void LCD_Clear(LCD_HandleTypeDef *hlcd) {
+  46:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_CLEAR_DISPLAY());
+  47:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_TRUE;
+  48:lib/LCD.c     ****     return;
+  49:lib/LCD.c     **** }
+  50:lib/LCD.c     **** 
+  51:lib/LCD.c     **** void LCD_Set_DDRAM_Addr(LCD_HandleTypeDef *hlcd, uint8_t addr) {
+  52:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_SET_DDRAM_ADDR(addr));
+  53:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_TRUE;
+  54:lib/LCD.c     ****     return;
+  55:lib/LCD.c     **** }
+  56:lib/LCD.c     **** 
+  57:lib/LCD.c     **** static void LCD_Set_CGRAM_Addr(LCD_HandleTypeDef *hlcd, uint8_t idx) {
+  58:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_SET_CGRAM_ADDR(idx, 0U));
+  59:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_TRUE;
+  60:lib/LCD.c     ****     return;
+  61:lib/LCD.c     **** }
+  62:lib/LCD.c     **** 
+  63:lib/LCD.c     **** void LCD_Set_CGRAM(LCD_HandleTypeDef *hlcd, uint8_t idx, uint8_t lines[8]) {
+  64:lib/LCD.c     ****     LCD_Set_CGRAM_Addr(hlcd, idx);
+  65:lib/LCD.c     ****     for (int i=0; i<8; i++)
+  66:lib/LCD.c     ****         LCD_Write_Byte(hlcd, LIM_DIGIT_LEN(lines[i], 5));
+  67:lib/LCD.c     ****     return;
+  68:lib/LCD.c     **** }
+  69:lib/LCD.c     **** 
+  70:lib/LCD.c     **** static uint8_t LCD_Calc_Code(char c) {
+  27              		.loc 1 70 0
+  28              		.cfi_startproc
+  29              		@ args = 0, pretend = 0, frame = 0
+  30              		@ frame_needed = 0, uses_anonymous_args = 0
+  31              		@ link register save eliminated.
+  32              	.LVL0:
+  71:lib/LCD.c     ****     if ((0x0 <= c && c <= 0x7)  || // CG RAM character.
+  33              		.loc 1 71 0
+  34 0000 0728     		cmp	r0, #7
+  35 0002 05D9     		bls	.L2
+  72:lib/LCD.c     ****         (0x20 <= c && c <= 0x7d)) // a-z, A-Z and some characters other than '~'.
+  36              		.loc 1 72 0 discriminator 1
+  37 0004 A0F12003 		sub	r3, r0, #32
+  38 0008 DBB2     		uxtb	r3, r3
+  71:lib/LCD.c     ****     if ((0x0 <= c && c <= 0x7)  || // CG RAM character.
+  39              		.loc 1 71 0 discriminator 1
+  40 000a 5D2B     		cmp	r3, #93
+  41 000c 00D9     		bls	.L2
+  73:lib/LCD.c     ****         return (uint8_t)c;
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 3
+
+
+  74:lib/LCD.c     ****     else
+  75:lib/LCD.c     ****         return (uint8_t)'.';
+  42              		.loc 1 75 0
+  43 000e 2E20     		movs	r0, #46
+  44              	.LVL1:
+  45              	.L2:
+  76:lib/LCD.c     **** }
+  46              		.loc 1 76 0
+  47 0010 7047     		bx	lr
+  48              		.cfi_endproc
+  49              	.LFE131:
+  51              		.section	.text.LCD_Write_Byte,"ax",%progbits
+  52              		.align	1
+  53              		.syntax unified
+  54              		.thumb
+  55              		.thumb_func
+  56              		.fpu fpv4-sp-d16
+  58              	LCD_Write_Byte:
+  59              	.LFB125:
+  25:lib/LCD.c     ****     uint8_t cmd_pair[2] = {
+  60              		.loc 1 25 0
+  61              		.cfi_startproc
+  62              		@ args = 0, pretend = 0, frame = 8
+  63              		@ frame_needed = 0, uses_anonymous_args = 0
+  64              	.LVL2:
+  65 0000 10B5     		push	{r4, lr}
+  66              		.cfi_def_cfa_offset 8
+  67              		.cfi_offset 4, -8
+  68              		.cfi_offset 14, -4
+  69 0002 84B0     		sub	sp, sp, #16
+  70              		.cfi_def_cfa_offset 24
+  71 0004 0446     		mov	r4, r0
+  26:lib/LCD.c     ****         LCD_CONTROL_BYTE(0, 1),
+  72              		.loc 1 26 0
+  73 0006 4023     		movs	r3, #64
+  74 0008 8DF80C30 		strb	r3, [sp, #12]
+  75 000c 8DF80D10 		strb	r1, [sp, #13]
+  31:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_FALSE;
+  76              		.loc 1 31 0
+  77 0010 8188     		ldrh	r1, [r0, #4]
+  78              	.LVL3:
+  79 0012 4FF4FA73 		mov	r3, #500
+  80 0016 0093     		str	r3, [sp]
+  81 0018 0223     		movs	r3, #2
+  82 001a 03AA     		add	r2, sp, #12
+  83 001c 0068     		ldr	r0, [r0]
+  84              	.LVL4:
+  85 001e FFF7FEFF 		bl	HAL_I2C_Master_Transmit
+  86              	.LVL5:
+  32:lib/LCD.c     ****     HAL_Delay(LCD_DATA_STABLE_WAIT);
+  87              		.loc 1 32 0
+  88 0022 0023     		movs	r3, #0
+  89 0024 E372     		strb	r3, [r4, #11]
+  33:lib/LCD.c     ****     return;
+  90              		.loc 1 33 0
+  91 0026 0120     		movs	r0, #1
+  92 0028 FFF7FEFF 		bl	HAL_Delay
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 4
+
+
+  93              	.LVL6:
+  35:lib/LCD.c     **** 
+  94              		.loc 1 35 0
+  95 002c 04B0     		add	sp, sp, #16
+  96              		.cfi_def_cfa_offset 8
+  97              		@ sp needed
+  98 002e 10BD     		pop	{r4, pc}
+  99              		.cfi_endproc
+ 100              	.LFE125:
+ 102              		.section	.text.LCD_Send_Cmd,"ax",%progbits
+ 103              		.align	1
+ 104              		.syntax unified
+ 105              		.thumb
+ 106              		.thumb_func
+ 107              		.fpu fpv4-sp-d16
+ 109              	LCD_Send_Cmd:
+ 110              	.LFB124:
+  14:lib/LCD.c     ****     uint8_t cmd_pair[2] = {
+ 111              		.loc 1 14 0
+ 112              		.cfi_startproc
+ 113              		@ args = 0, pretend = 0, frame = 8
+ 114              		@ frame_needed = 0, uses_anonymous_args = 0
+ 115              	.LVL7:
+ 116 0000 00B5     		push	{lr}
+ 117              		.cfi_def_cfa_offset 4
+ 118              		.cfi_offset 14, -4
+ 119 0002 85B0     		sub	sp, sp, #20
+ 120              		.cfi_def_cfa_offset 24
+  15:lib/LCD.c     ****         LCD_CONTROL_BYTE(0, 0),
+ 121              		.loc 1 15 0
+ 122 0004 0023     		movs	r3, #0
+ 123 0006 8DF80C30 		strb	r3, [sp, #12]
+ 124 000a 8DF80D10 		strb	r1, [sp, #13]
+  20:lib/LCD.c     ****     HAL_Delay(LCD_CMD_STABLE_WAIT);
+ 125              		.loc 1 20 0
+ 126 000e 8188     		ldrh	r1, [r0, #4]
+ 127              	.LVL8:
+ 128 0010 0068     		ldr	r0, [r0]
+ 129              	.LVL9:
+ 130 0012 4FF4FA73 		mov	r3, #500
+ 131 0016 0093     		str	r3, [sp]
+ 132 0018 0223     		movs	r3, #2
+ 133 001a 03AA     		add	r2, sp, #12
+ 134 001c FFF7FEFF 		bl	HAL_I2C_Master_Transmit
+ 135              	.LVL10:
+  21:lib/LCD.c     ****     return;
+ 136              		.loc 1 21 0
+ 137 0020 0120     		movs	r0, #1
+ 138 0022 FFF7FEFF 		bl	HAL_Delay
+ 139              	.LVL11:
+  23:lib/LCD.c     **** 
+ 140              		.loc 1 23 0
+ 141 0026 05B0     		add	sp, sp, #20
+ 142              		.cfi_def_cfa_offset 4
+ 143              		@ sp needed
+ 144 0028 5DF804FB 		ldr	pc, [sp], #4
+ 145              		.cfi_endproc
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 5
+
+
+ 146              	.LFE124:
+ 148              		.section	.text.LCD_Set_CGRAM_Addr,"ax",%progbits
+ 149              		.align	1
+ 150              		.syntax unified
+ 151              		.thumb
+ 152              		.thumb_func
+ 153              		.fpu fpv4-sp-d16
+ 155              	LCD_Set_CGRAM_Addr:
+ 156              	.LFB129:
+  57:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_SET_CGRAM_ADDR(idx, 0U));
+ 157              		.loc 1 57 0
+ 158              		.cfi_startproc
+ 159              		@ args = 0, pretend = 0, frame = 0
+ 160              		@ frame_needed = 0, uses_anonymous_args = 0
+ 161              	.LVL12:
+ 162 0000 10B5     		push	{r4, lr}
+ 163              		.cfi_def_cfa_offset 8
+ 164              		.cfi_offset 4, -8
+ 165              		.cfi_offset 14, -4
+ 166 0002 0446     		mov	r4, r0
+  58:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_TRUE;
+ 167              		.loc 1 58 0
+ 168 0004 C900     		lsls	r1, r1, #3
+ 169              	.LVL13:
+ 170 0006 01F03801 		and	r1, r1, #56
+ 171 000a 41F04001 		orr	r1, r1, #64
+ 172 000e FFF7FEFF 		bl	LCD_Send_Cmd
+ 173              	.LVL14:
+  59:lib/LCD.c     ****     return;
+ 174              		.loc 1 59 0
+ 175 0012 0123     		movs	r3, #1
+ 176 0014 E372     		strb	r3, [r4, #11]
+ 177 0016 10BD     		pop	{r4, pc}
+ 178              		.cfi_endproc
+ 179              	.LFE129:
+ 181              		.section	.text.LCD_Write,"ax",%progbits
+ 182              		.align	1
+ 183              		.global	LCD_Write
+ 184              		.syntax unified
+ 185              		.thumb
+ 186              		.thumb_func
+ 187              		.fpu fpv4-sp-d16
+ 189              	LCD_Write:
+ 190              	.LFB126:
+  37:lib/LCD.c     ****     while(*str) {
+ 191              		.loc 1 37 0
+ 192              		.cfi_startproc
+ 193              		@ args = 0, pretend = 0, frame = 0
+ 194              		@ frame_needed = 0, uses_anonymous_args = 0
+ 195              	.LVL15:
+ 196 0000 38B5     		push	{r3, r4, r5, lr}
+ 197              		.cfi_def_cfa_offset 16
+ 198              		.cfi_offset 3, -16
+ 199              		.cfi_offset 4, -12
+ 200              		.cfi_offset 5, -8
+ 201              		.cfi_offset 14, -4
+ 202 0002 0546     		mov	r5, r0
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 6
+
+
+ 203 0004 0C46     		mov	r4, r1
+  38:lib/LCD.c     ****         LCD_Write_Byte(hlcd, LCD_Calc_Code(*str));
+ 204              		.loc 1 38 0
+ 205 0006 06E0     		b	.L12
+ 206              	.LVL16:
+ 207              	.L13:
+  39:lib/LCD.c     ****         str++;
+ 208              		.loc 1 39 0
+ 209 0008 FFF7FEFF 		bl	LCD_Calc_Code
+ 210              	.LVL17:
+ 211 000c 0146     		mov	r1, r0
+ 212 000e 2846     		mov	r0, r5
+ 213 0010 FFF7FEFF 		bl	LCD_Write_Byte
+ 214              	.LVL18:
+  40:lib/LCD.c     ****     }
+ 215              		.loc 1 40 0
+ 216 0014 0134     		adds	r4, r4, #1
+ 217              	.LVL19:
+ 218              	.L12:
+  38:lib/LCD.c     ****         LCD_Write_Byte(hlcd, LCD_Calc_Code(*str));
+ 219              		.loc 1 38 0
+ 220 0016 2078     		ldrb	r0, [r4]	@ zero_extendqisi2
+ 221 0018 0028     		cmp	r0, #0
+ 222 001a F5D1     		bne	.L13
+  43:lib/LCD.c     **** 
+ 223              		.loc 1 43 0
+ 224 001c 38BD     		pop	{r3, r4, r5, pc}
+ 225              		.cfi_endproc
+ 226              	.LFE126:
+ 228              		.section	.text.LCD_Clear,"ax",%progbits
+ 229              		.align	1
+ 230              		.global	LCD_Clear
+ 231              		.syntax unified
+ 232              		.thumb
+ 233              		.thumb_func
+ 234              		.fpu fpv4-sp-d16
+ 236              	LCD_Clear:
+ 237              	.LFB127:
+  45:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_CLEAR_DISPLAY());
+ 238              		.loc 1 45 0
+ 239              		.cfi_startproc
+ 240              		@ args = 0, pretend = 0, frame = 0
+ 241              		@ frame_needed = 0, uses_anonymous_args = 0
+ 242              	.LVL20:
+ 243 0000 10B5     		push	{r4, lr}
+ 244              		.cfi_def_cfa_offset 8
+ 245              		.cfi_offset 4, -8
+ 246              		.cfi_offset 14, -4
+ 247 0002 0446     		mov	r4, r0
+  46:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_TRUE;
+ 248              		.loc 1 46 0
+ 249 0004 0121     		movs	r1, #1
+ 250 0006 FFF7FEFF 		bl	LCD_Send_Cmd
+ 251              	.LVL21:
+  47:lib/LCD.c     ****     return;
+ 252              		.loc 1 47 0
+ 253 000a 0123     		movs	r3, #1
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 7
+
+
+ 254 000c E372     		strb	r3, [r4, #11]
+ 255 000e 10BD     		pop	{r4, pc}
+ 256              		.cfi_endproc
+ 257              	.LFE127:
+ 259              		.section	.text.LCD_Set_DDRAM_Addr,"ax",%progbits
+ 260              		.align	1
+ 261              		.global	LCD_Set_DDRAM_Addr
+ 262              		.syntax unified
+ 263              		.thumb
+ 264              		.thumb_func
+ 265              		.fpu fpv4-sp-d16
+ 267              	LCD_Set_DDRAM_Addr:
+ 268              	.LFB128:
+  51:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_SET_DDRAM_ADDR(addr));
+ 269              		.loc 1 51 0
+ 270              		.cfi_startproc
+ 271              		@ args = 0, pretend = 0, frame = 0
+ 272              		@ frame_needed = 0, uses_anonymous_args = 0
+ 273              	.LVL22:
+ 274 0000 10B5     		push	{r4, lr}
+ 275              		.cfi_def_cfa_offset 8
+ 276              		.cfi_offset 4, -8
+ 277              		.cfi_offset 14, -4
+ 278 0002 0446     		mov	r4, r0
+  52:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_TRUE;
+ 279              		.loc 1 52 0
+ 280 0004 41F08001 		orr	r1, r1, #128
+ 281              	.LVL23:
+ 282 0008 FFF7FEFF 		bl	LCD_Send_Cmd
+ 283              	.LVL24:
+  53:lib/LCD.c     ****     return;
+ 284              		.loc 1 53 0
+ 285 000c 0123     		movs	r3, #1
+ 286 000e E372     		strb	r3, [r4, #11]
+ 287 0010 10BD     		pop	{r4, pc}
+ 288              		.cfi_endproc
+ 289              	.LFE128:
+ 291              		.section	.text.LCD_Set_CGRAM,"ax",%progbits
+ 292              		.align	1
+ 293              		.global	LCD_Set_CGRAM
+ 294              		.syntax unified
+ 295              		.thumb
+ 296              		.thumb_func
+ 297              		.fpu fpv4-sp-d16
+ 299              	LCD_Set_CGRAM:
+ 300              	.LFB130:
+  63:lib/LCD.c     ****     LCD_Set_CGRAM_Addr(hlcd, idx);
+ 301              		.loc 1 63 0
+ 302              		.cfi_startproc
+ 303              		@ args = 0, pretend = 0, frame = 0
+ 304              		@ frame_needed = 0, uses_anonymous_args = 0
+ 305              	.LVL25:
+ 306 0000 70B5     		push	{r4, r5, r6, lr}
+ 307              		.cfi_def_cfa_offset 16
+ 308              		.cfi_offset 4, -16
+ 309              		.cfi_offset 5, -12
+ 310              		.cfi_offset 6, -8
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 8
+
+
+ 311              		.cfi_offset 14, -4
+ 312 0002 0646     		mov	r6, r0
+ 313 0004 1546     		mov	r5, r2
+  64:lib/LCD.c     ****     for (int i=0; i<8; i++)
+ 314              		.loc 1 64 0
+ 315 0006 FFF7FEFF 		bl	LCD_Set_CGRAM_Addr
+ 316              	.LVL26:
+ 317              	.LBB2:
+  65:lib/LCD.c     ****         LCD_Write_Byte(hlcd, LIM_DIGIT_LEN(lines[i], 5));
+ 318              		.loc 1 65 0
+ 319 000a 0024     		movs	r4, #0
+ 320 000c 06E0     		b	.L20
+ 321              	.LVL27:
+ 322              	.L21:
+  66:lib/LCD.c     ****     return;
+ 323              		.loc 1 66 0 discriminator 3
+ 324 000e 295D     		ldrb	r1, [r5, r4]	@ zero_extendqisi2
+ 325 0010 01F01F01 		and	r1, r1, #31
+ 326 0014 3046     		mov	r0, r6
+ 327 0016 FFF7FEFF 		bl	LCD_Write_Byte
+ 328              	.LVL28:
+  65:lib/LCD.c     ****         LCD_Write_Byte(hlcd, LIM_DIGIT_LEN(lines[i], 5));
+ 329              		.loc 1 65 0 discriminator 3
+ 330 001a 0134     		adds	r4, r4, #1
+ 331              	.LVL29:
+ 332              	.L20:
+  65:lib/LCD.c     ****         LCD_Write_Byte(hlcd, LIM_DIGIT_LEN(lines[i], 5));
+ 333              		.loc 1 65 0 is_stmt 0 discriminator 1
+ 334 001c 072C     		cmp	r4, #7
+ 335 001e F6DD     		ble	.L21
+ 336              	.LBE2:
+  68:lib/LCD.c     **** 
+ 337              		.loc 1 68 0 is_stmt 1
+ 338 0020 70BD     		pop	{r4, r5, r6, pc}
+ 339              		.cfi_endproc
+ 340              	.LFE130:
+ 342              		.section	.text.LCD_Init,"ax",%progbits
+ 343              		.align	1
+ 344              		.global	LCD_Init
+ 345              		.syntax unified
+ 346              		.thumb
+ 347              		.thumb_func
+ 348              		.fpu fpv4-sp-d16
+ 350              	LCD_Init:
+ 351              	.LFB132:
+  77:lib/LCD.c     **** 
+  78:lib/LCD.c     **** HAL_StatusTypeDef LCD_Init(LCD_HandleTypeDef *hlcd) {
+ 352              		.loc 1 78 0
+ 353              		.cfi_startproc
+ 354              		@ args = 0, pretend = 0, frame = 0
+ 355              		@ frame_needed = 0, uses_anonymous_args = 0
+ 356              	.LVL30:
+  79:lib/LCD.c     ****     if (hlcd->Init.line_num & hlcd->Init.double_height)
+ 357              		.loc 1 79 0
+ 358 0000 8279     		ldrb	r2, [r0, #6]	@ zero_extendqisi2
+ 359 0002 C379     		ldrb	r3, [r0, #7]	@ zero_extendqisi2
+ 360 0004 1A42     		tst	r2, r3
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 9
+
+
+ 361 0006 01D0     		beq	.L30
+  80:lib/LCD.c     ****         return HAL_ERROR;
+ 362              		.loc 1 80 0
+ 363 0008 0120     		movs	r0, #1
+ 364              	.LVL31:
+ 365 000a 7047     		bx	lr
+ 366              	.LVL32:
+ 367              	.L30:
+  78:lib/LCD.c     ****     if (hlcd->Init.line_num & hlcd->Init.double_height)
+ 368              		.loc 1 78 0
+ 369 000c 10B5     		push	{r4, lr}
+ 370              		.cfi_def_cfa_offset 8
+ 371              		.cfi_offset 4, -8
+ 372              		.cfi_offset 14, -4
+ 373 000e 0446     		mov	r4, r0
+  81:lib/LCD.c     **** 
+  82:lib/LCD.c     ****     // wait for LCD set up.
+  83:lib/LCD.c     ****     HAL_Delay(100);
+ 374              		.loc 1 83 0
+ 375 0010 6420     		movs	r0, #100
+ 376              	.LVL33:
+ 377 0012 FFF7FEFF 		bl	HAL_Delay
+ 378              	.LVL34:
+  84:lib/LCD.c     **** 
+  85:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_FUNCTION_SET(hlcd->Init.line_num, hlcd->Init.double_height, 0U));
+ 379              		.loc 1 85 0
+ 380 0016 A179     		ldrb	r1, [r4, #6]	@ zero_extendqisi2
+ 381 0018 C900     		lsls	r1, r1, #3
+ 382 001a 01F00801 		and	r1, r1, #8
+ 383 001e E379     		ldrb	r3, [r4, #7]	@ zero_extendqisi2
+ 384 0020 9B00     		lsls	r3, r3, #2
+ 385 0022 03F00403 		and	r3, r3, #4
+ 386 0026 1943     		orrs	r1, r1, r3
+ 387 0028 41F03001 		orr	r1, r1, #48
+ 388 002c 2046     		mov	r0, r4
+ 389 002e FFF7FEFF 		bl	LCD_Send_Cmd
+ 390              	.LVL35:
+  86:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_FUNCTION_SET(hlcd->Init.line_num, hlcd->Init.double_height, 1U));
+ 391              		.loc 1 86 0
+ 392 0032 A179     		ldrb	r1, [r4, #6]	@ zero_extendqisi2
+ 393 0034 C900     		lsls	r1, r1, #3
+ 394 0036 01F00801 		and	r1, r1, #8
+ 395 003a E379     		ldrb	r3, [r4, #7]	@ zero_extendqisi2
+ 396 003c 9B00     		lsls	r3, r3, #2
+ 397 003e 03F00403 		and	r3, r3, #4
+ 398 0042 1943     		orrs	r1, r1, r3
+ 399 0044 41F03101 		orr	r1, r1, #49
+ 400 0048 2046     		mov	r0, r4
+ 401 004a FFF7FEFF 		bl	LCD_Send_Cmd
+ 402              	.LVL36:
+  87:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_INTERNAL_OSC_FREQ(0U, 0b100U));
+ 403              		.loc 1 87 0
+ 404 004e 1421     		movs	r1, #20
+ 405 0050 2046     		mov	r0, r4
+ 406 0052 FFF7FEFF 		bl	LCD_Send_Cmd
+ 407              	.LVL37:
+  88:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_CONTRAST_SET(hlcd->Init.contrast));
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 10
+
+
+ 408              		.loc 1 88 0
+ 409 0056 A17A     		ldrb	r1, [r4, #10]	@ zero_extendqisi2
+ 410 0058 01F00F01 		and	r1, r1, #15
+ 411 005c 41F07001 		orr	r1, r1, #112
+ 412 0060 2046     		mov	r0, r4
+ 413 0062 FFF7FEFF 		bl	LCD_Send_Cmd
+ 414              	.LVL38:
+  89:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_POWER_ICON_CONTRAST_CR(0U, 1U, hlcd->Init.contrast));
+ 415              		.loc 1 89 0
+ 416 0066 A17A     		ldrb	r1, [r4, #10]	@ zero_extendqisi2
+ 417 0068 C1F30011 		ubfx	r1, r1, #4, #1
+ 418 006c 41F05201 		orr	r1, r1, #82
+ 419 0070 2046     		mov	r0, r4
+ 420 0072 FFF7FEFF 		bl	LCD_Send_Cmd
+ 421              	.LVL39:
+  90:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_FOLLOWER_CR(1U, 0b100U));
+ 422              		.loc 1 90 0
+ 423 0076 6C21     		movs	r1, #108
+ 424 0078 2046     		mov	r0, r4
+ 425 007a FFF7FEFF 		bl	LCD_Send_Cmd
+ 426              	.LVL40:
+  91:lib/LCD.c     **** 
+  92:lib/LCD.c     ****     // wait for LCD power stable
+  93:lib/LCD.c     ****     HAL_Delay(300);
+ 427              		.loc 1 93 0
+ 428 007e 4FF49670 		mov	r0, #300
+ 429 0082 FFF7FEFF 		bl	HAL_Delay
+ 430              	.LVL41:
+  94:lib/LCD.c     **** 
+  95:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_FUNCTION_SET(hlcd->Init.line_num, hlcd->Init.double_height, 0U));
+ 431              		.loc 1 95 0
+ 432 0086 A179     		ldrb	r1, [r4, #6]	@ zero_extendqisi2
+ 433 0088 C900     		lsls	r1, r1, #3
+ 434 008a 01F00801 		and	r1, r1, #8
+ 435 008e E379     		ldrb	r3, [r4, #7]	@ zero_extendqisi2
+ 436 0090 9B00     		lsls	r3, r3, #2
+ 437 0092 03F00403 		and	r3, r3, #4
+ 438 0096 1943     		orrs	r1, r1, r3
+ 439 0098 41F03001 		orr	r1, r1, #48
+ 440 009c 2046     		mov	r0, r4
+ 441 009e FFF7FEFF 		bl	LCD_Send_Cmd
+ 442              	.LVL42:
+  96:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_CLEAR_DISPLAY());
+ 443              		.loc 1 96 0
+ 444 00a2 0121     		movs	r1, #1
+ 445 00a4 2046     		mov	r0, r4
+ 446 00a6 FFF7FEFF 		bl	LCD_Send_Cmd
+ 447              	.LVL43:
+  97:lib/LCD.c     ****     LCD_Send_Cmd(hlcd, LCD_DISPLAY_ON_OFF(1U, hlcd->Init.cursor, hlcd->Init.blink));
+ 448              		.loc 1 97 0
+ 449 00aa 217A     		ldrb	r1, [r4, #8]	@ zero_extendqisi2
+ 450 00ac 4900     		lsls	r1, r1, #1
+ 451 00ae 01F00201 		and	r1, r1, #2
+ 452 00b2 637A     		ldrb	r3, [r4, #9]	@ zero_extendqisi2
+ 453 00b4 03F00103 		and	r3, r3, #1
+ 454 00b8 1943     		orrs	r1, r1, r3
+ 455 00ba 41F00C01 		orr	r1, r1, #12
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 11
+
+
+ 456 00be 2046     		mov	r0, r4
+ 457 00c0 FFF7FEFF 		bl	LCD_Send_Cmd
+ 458              	.LVL44:
+  98:lib/LCD.c     **** 
+  99:lib/LCD.c     ****     hlcd->RAM_Addr_Changed = LCD_TRUE;
+ 459              		.loc 1 99 0
+ 460 00c4 0123     		movs	r3, #1
+ 461 00c6 E372     		strb	r3, [r4, #11]
+ 100:lib/LCD.c     **** 
+ 101:lib/LCD.c     ****     return HAL_OK;
+ 462              		.loc 1 101 0
+ 463 00c8 0020     		movs	r0, #0
+ 464 00ca 10BD     		pop	{r4, pc}
+ 465              		.cfi_endproc
+ 466              	.LFE132:
+ 468              		.text
+ 469              	.Letext0:
+ 470              		.file 2 "/Users/babatatsuya/Applications/gcc-arm-none-eabi-6-2017-q1-update/arm-none-eabi/include/
+ 471              		.file 3 "/Users/babatatsuya/Applications/gcc-arm-none-eabi-6-2017-q1-update/arm-none-eabi/include/
+ 472              		.file 4 "Drivers/CMSIS/Include/core_cm4.h"
+ 473              		.file 5 "Drivers/CMSIS/Device/ST/STM32F3xx/Include/system_stm32f3xx.h"
+ 474              		.file 6 "Drivers/CMSIS/Device/ST/STM32F3xx/Include/stm32f303x8.h"
+ 475              		.file 7 "/Users/babatatsuya/Applications/gcc-arm-none-eabi-6-2017-q1-update/arm-none-eabi/include/
+ 476              		.file 8 "/Users/babatatsuya/Applications/gcc-arm-none-eabi-6-2017-q1-update/arm-none-eabi/include/
+ 477              		.file 9 "/Users/babatatsuya/Applications/gcc-arm-none-eabi-6-2017-q1-update/lib/gcc/arm-none-eabi/
+ 478              		.file 10 "/Users/babatatsuya/Applications/gcc-arm-none-eabi-6-2017-q1-update/arm-none-eabi/include
+ 479              		.file 11 "Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_def.h"
+ 480              		.file 12 "Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_dma.h"
+ 481              		.file 13 "Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_i2c.h"
+ 482              		.file 14 "lib/LCD.h"
+ 483              		.file 15 "Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal.h"
+ARM GAS  /var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s 			page 12
+
+
+DEFINED SYMBOLS
+                            *ABS*:0000000000000000 LCD.c
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:18     .text.LCD_Calc_Code:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:24     .text.LCD_Calc_Code:0000000000000000 LCD_Calc_Code
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:52     .text.LCD_Write_Byte:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:58     .text.LCD_Write_Byte:0000000000000000 LCD_Write_Byte
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:103    .text.LCD_Send_Cmd:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:109    .text.LCD_Send_Cmd:0000000000000000 LCD_Send_Cmd
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:149    .text.LCD_Set_CGRAM_Addr:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:155    .text.LCD_Set_CGRAM_Addr:0000000000000000 LCD_Set_CGRAM_Addr
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:182    .text.LCD_Write:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:189    .text.LCD_Write:0000000000000000 LCD_Write
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:229    .text.LCD_Clear:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:236    .text.LCD_Clear:0000000000000000 LCD_Clear
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:260    .text.LCD_Set_DDRAM_Addr:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:267    .text.LCD_Set_DDRAM_Addr:0000000000000000 LCD_Set_DDRAM_Addr
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:292    .text.LCD_Set_CGRAM:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:299    .text.LCD_Set_CGRAM:0000000000000000 LCD_Set_CGRAM
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:343    .text.LCD_Init:0000000000000000 $t
+/var/folders/hm/d3zjjmsn0l94vys0c33c49nh0000gn/T//ccn3Z3JC.s:350    .text.LCD_Init:0000000000000000 LCD_Init
+                     .debug_frame:0000000000000010 $d
+
+UNDEFINED SYMBOLS
+HAL_I2C_Master_Transmit
+HAL_Delay
